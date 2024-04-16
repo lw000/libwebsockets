@@ -397,6 +397,18 @@ int ZEXPORT deflateSetHeader (strm, head)
 }
 
 /* ========================================================================= */
+int ZEXPORT deflatePending (strm, pending, bits)
+    z_streamp strm;
+    unsigned *pending;
+    int *bits;
+{
+    if (strm == Z_NULL || strm->state == Z_NULL) return Z_STREAM_ERROR;
+    *pending = strm->state->pending;
+    *bits = strm->state->bi_valid;
+    return Z_OK;
+}
+
+/* ========================================================================= */
 int ZEXPORT deflatePrime (strm, bits, value)
     z_streamp strm;
     int bits;

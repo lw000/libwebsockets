@@ -1,4 +1,12 @@
 #Ignore build files
+CMakeCache.txt
+CMakeFiles
+build
+cmake_install.cmake
+build/lws-minimal*
+Makefile
+.cproject
+.project
 config.h
 config.log
 config.status
@@ -38,3 +46,21 @@ ar-lib
 libwebsockets.pc
 build/
 *.swp
+doc
+/build2/
+/build3/
+/cov-int/
+/.vs/
+/build-mtls/
+/build-mingw64/
+/n9/
+/bb/
+/openssl3/
+/bb-linkit/
+/bq/
+/cros/
+/q/
+/b1/
+/destdir/
+/bb1/
+/bb3/

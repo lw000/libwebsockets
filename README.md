@@ -1,26 +1,150 @@
-[![Travis Build Status](https://travis-ci.org/warmcat/libwebsockets.svg)](https://travis-ci.org/warmcat/libwebsockets)
-[![Appveyor Build status](https://ci.appveyor.com/api/projects/status/qfasji8mnfnd2r8t?svg=true)](https://ci.appveyor.com/project/lws-team/libwebsockets)
-[![Coverity Scan Build Status](https://scan.coverity.com/projects/3576/badge.svg)](https://scan.coverity.com/projects/3576)
+[![CI status](https://libwebsockets.org/sai/status/libwebsockets)](https://libwebsockets.org/git/libwebsockets) [![Coverity Scan Build Status](https://scan.coverity.com/projects/3576/badge.svg)](https://scan.coverity.com/projects/3576) [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/2266/badge)](https://bestpractices.coreinfrastructure.org/projects/2266) [![Codacy Badge](https://api.codacy.com/project/badge/Grade/144fb195a83046e484a75c8b4c6cfc99)](https://www.codacy.com/app/lws-team/libwebsockets?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=warmcat/libwebsockets&amp;utm_campaign=Badge_Grade) [![Total alerts](https://img.shields.io/lgtm/alerts/g/warmcat/libwebsockets.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/warmcat/libwebsockets/alerts/) [![Language grade: C/C++](https://img.shields.io/lgtm/grade/cpp/g/warmcat/libwebsockets.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/warmcat/libwebsockets/context:cpp) [![Language grade: JavaScript](https://img.shields.io/lgtm/grade/javascript/g/warmcat/libwebsockets.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/warmcat/libwebsockets/context:javascript)
 
-libwebsockets
--------------
+# Libwebsockets
+
+Libwebsockets is a simple-to-use, MIT-license, pure C library providing client and server
+for **http/1**, **http/2**, **websockets**, **MQTT** and other protocols in a security-minded,
+lightweight, configurable, scalable and flexible way.  It's easy to build and
+cross-build via cmake and is suitable for tasks from embedded RTOS through mass
+cloud serving.
+
+It supports a lot of lightweight ancilliary implementations for things like JSON,
+CBOR, JOSE, COSE, and supports OpenSSL and MbedTLS v2 and v3 out of the box for everything.
+It's very gregarious when it comes to event loop sharing, supporting libuv, libevent, libev,
+sdevent, glib and uloop, as well as custom event libs.
+
+[100+ independent minimal examples](https://libwebsockets.org/git/libwebsockets/tree/minimal-examples) for various scenarios, CC0-licensed
+(public domain) for cut-and-paste, allow you to get started quickly.
+
+[There are a lot of READMEs](https://libwebsockets.org/git/libwebsockets/tree/READMEs) on a variety of topics.
+
+[We do a huge amount of CI testing per push](https://libwebsockets.org/sai/), currently 582 builds on 30 platforms.
+[You can see the lws CI rack and read about how lws-based Sai is used to coordinate all the testing](https://warmcat.com/2021/08/21/Sai-CI.html).
+
+![overview](./doc-assets/lws-overview.png)
 
 News
 ----
 
-v2.3 is out... see the changelog https://github.com/warmcat/libwebsockets/blob/v2.3-stable/changelog
+## HTML + CSS + JPEG + PNG display stack in lws
 
-ESP32 is now supported in lws!  Download the
+Want to drive your EPD or TFT / OLED display using HTML + CSS?  Only got an ESP32?
 
- - factory https://github.com/warmcat/lws-esp32-factory and
- - test server app https://github.com/warmcat/lws-esp32-test-server-demos
+Want remote JPEGs, PNGs, HTML, RGBA composition, gamma, error diffusion if needed?
 
+Realtime render into a line buffer because you don't have enough heap for a framebuffer?
+
+[Take a look here...](https://libwebsockets.org/git/libwebsockets/tree/READMEs/README.html-parser.md)
+
+## Perl binding for lws available
+
+Thanks to Felipe Gasper, there's now a [perl binding for lws available at metacpan](https://metacpan.org/pod/Net::Libwebsockets),
+this uses the recent generic event loop support in lws to have lws as a guest on an existing perl event loop.
+
+## Lws examples switching to Secure Streams
+
+![Secure Streams direct](./doc-assets/ss-api1.png)
+
+**Secure Streams** support in lws was introduced a couple of years ago, it's a
+higher-level interface to lws `wsi`-level apis that simplifies connectivity by
+segregating connection policy like protocol and endpoint information into a
+separate [JSON policy file](./minimal-examples/client/hello_world/example-policy.json), and just having the [code deal with payloads](./minimal-examples/clients/hello_world/hello_world-ss.c); as many
+details of the wire protocol as possible are hidden or moved to the policy, so
+user code is almost identical even if the wire protocol changes.
+
+The user code just asks to create a SS by "streamtype name", it is created
+according to the details (protocol, endpoint, etc) under the same name in the
+policy.
+
+Key policy entries like endpoint can contain `${metadata-name}` string
+substitutions to handle runtime adaptations via metadata.  h1, h2, ws and mqtt
+are supported.
+
+As a layer on top of the `wsi` apis, SS provides a higher-level way to access
+the existing wsi-level capabilities, both kinds of API will remain supported.
+Secure Streams are longer-lived than a single wsi, so an SS can coordinate
+retries by itself.  SS-based user code is typically significantly smaller and
+more maintainable than wsi layer.
+
+In main branch I have moved the older examples into `./minimal-examples-lowlevel`
+and am starting to port more cases from there into SS-based examples.
+
+### Comparison between wsi and SS level lws usage
+
+|Feature|"low-level" wsi way|Secure Streams way|
+|---|---|---|
+|Create context|code|same|
+|Loop support, sul scheduler|default, event libs|same|
+|Supports comms mode|Client, Server, Raw|same|
+|Supports protocols|h1, h2, ws, mqtt (client)|same|
+|TLS support|mbedtls (including v3), openssl (including v3), wolfssl, boringssl, libressl|same|
+|Serializable, proxiable, muxable, transportable|No|Yes|
+|Auto-allocated per-connection user object|pss specified in lws_protocols|Specified in ss info struct|
+|Connection User API|Protocol-specific lws_protocols cbs (> 100)|SS API (rx, tx, state callbacks only)|
+|Sending adaptation|lws_callback_on_writeable()  + WRITEABLE|lws_ss_request_write() + tx() cb|
+|Sending buffer|User-chosen + malloc'd partial handling|SS-provided, no partials|
+|Create vhosts|code|**JSON policy**|
+|TLS validation|cert bundle or code|**JSON policy**, or cert bundle|
+|Connection retry / backoff|code|**JSON policy**, Auto|
+|Nailing up|code|**JSON policy**, Auto|
+|Endpoint and protocol details|spread around the code|**JSON policy**|
+|Protocol selection, pipeline / stream sharing|code|**JSON policy**|
+|ws subprotocol selection|code|**JSON policy**|
+|ws binary / text|code|**JSON policy**|
+|Protocol-specific metadata|Protocol-specific apis in code (eg, lws_hdr)|**JSON policy**, generic metadata apis in code|
+|Connection validity rules|struct|**JSON policy**, Auto|
+|Stream as Long Poll|code|**JSON policy**|
+|Auth|code|**JSON policy** + automatic rotation if provider supported, else code|
+
+### Serialized Secure Streams
+
+![Secure Streams direct](./doc-assets/ss-api2.png)
+
+Secure Streams APIs are also **serializable**, the exact same client code can
+fulfil the connection directly in the same process as you would expect, or
+forward the actions, metadata and payloads to an [SS Proxy](./minimal-examples/ssproxy/ssproxy-socket) that owns the policy
+over a Unix Domain or TCP socket connection to be fulfilled centrally.  This
+allows, eg, h2 streams from different processes sharing a single connection.
+
+![Secure Streams direct](./doc-assets/ss-api3.png)
+
+The serialized SS can also travel over generic transports like UART, an [example
+is provided implementing the Binance example on an RPi Pico](./minimal-examples/embedded/pico/pico-sspc-binance) with a UART transport
+to a [UART transport SS proxy](./minimal-examples/ssproxy/ssproxy-custom-transport-uart), where the pico itself has no network stack, tls, compression or
+wss stack, but can send and receive to and from the endpoint as if it did.
+
+The optional `lws_trasport_mux` is used to interpose between the UART transport
+and the SSPC layer, allowing a single pipe to carry many separate SS connections.
+
+The user SS code is identical however it is transported, muxed and fulfilled.
+
+
+## v4.3 is released
+
+See the [changelog](https://libwebsockets.org/git/libwebsockets/tree/changelog)
+
+
+## Lws work retrospective
+
+The initial commit for lws will have been 11 years ago come Oct 28 2021, it's been a lot of work.
+There are a total of 4.3K patches, touching 800KLOC cumulatively (this is not the size in the
+repo, but over the years, how many source lines were changed by patches).
+
+![overview](./doc-assets/work.png)
+
+Gratifyingly, it turns out over the years, ~15% of that was contributed by 404 contributors: that's not so bad.
+Thanks a lot to everyone who has provided patches.
+
+Today at least tens of millions of devices and product features rely on lws to
+handle their communications including several from FAANG; Google now include lws
+as part of Android sources.
+
+## Support
 
 This is the libwebsockets C library for lightweight websocket clients and
 servers.  For support, visit
 
  https://libwebsockets.org
- https://github.com/warmcat/libwebsockets
 
 and consider joining the project mailing list at
 
@@ -28,65 +152,7 @@ and consider joining the project mailing list at
 
 You can get the latest version of the library from git:
 
-- https://github.com/warmcat/libwebsockets
 - https://libwebsockets.org/git
 
-Doxygen API docs for master: https://libwebsockets.org/lws-api-doc-master/html/index.html
+Doxygen API docs for development: https://libwebsockets.org/lws-api-doc-main/html/index.html
 
-
-After libwebsockets 1.3, tags will be signed using a key corresponding to this public key
-
-```
------BEGIN PGP PUBLIC KEY BLOCK-----
-Version: GnuPG v1
-
-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
-+AWJGq/WfB7N6pPh8S/XMW4e6ptuUodjiA==
-=HV8t
------END PGP PUBLIC KEY BLOCK-----
-```
